@@ -1,0 +1,23 @@
+steps:
+- name: gcr.io/google.com/cloudsdktool/cloud-sdk
+  waitFor: ['-']
+  dir: weather-getter
+  entrypoint: gcloud
+  args:
+  - functions
+  - deploy
+  - weather-getter
+  - --gen2
+  - --region=${_REGION}
+- name: gcr.io/google.com/cloudsdktool/cloud-sdk
+  waitFor: ['-']
+  dir: transformer
+  entrypoint: gcloud
+  args:
+  - functions
+  - deploy
+  - transformer
+  - --gen2
+  - --region=${_REGION}
+substitutions:
+  _REGION: us-central1
