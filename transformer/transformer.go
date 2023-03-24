@@ -1,8 +1,10 @@
 package transformer
 
 import (
-	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"context"
+
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 )
 
 func init() {
