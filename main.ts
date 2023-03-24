@@ -14,20 +14,9 @@ class MyStack extends TerraformStack {
         project,
     });
 
-    const asset = new TerraformAsset(this, 'asset', {
-        path: path.resolve('function'),
-        type: AssetType.ARCHIVE,
-    });
-
     const assetBucket = new google.storageBucket.StorageBucket(this, 'assetBucket', {
         location: region,
         name: `asset-bucket-${project}`,
-    });
-
-    const assetObject = new google.storageBucketObject.StorageBucketObject(this, 'assetObject', {
-        bucket: assetBucket.name,
-        name: asset.assetHash,
-        source: asset.path,
     });
 
     const transformQueue = new google.pubsubTopic.PubsubTopic(this, 'transformQueue', {
@@ -46,8 +35,19 @@ class MyStack extends TerraformStack {
         secretData: 'dummy',
     });
 
-    const weatherGetterRunner = new google.serviceAccount.ServiceAccount(this, 'weatherGetRunner', {
-        accountId: 'weather-get-runner',
+    const weatherGetterRunner = new google.serviceAccount.ServiceAccount(this, 'weatherGetterRunner', {
+        accountId: 'weather-getter-runner',
+    });
+
+    const weatherGetterAsset = new TerraformAsset(this, 'weatherGetterAsset', {
+        path: path.resolve('weathergetter'),
+        type: AssetType.ARCHIVE,
+    });
+
+    const weatherGetterObject = new google.storageBucketObject.StorageBucketObject(this, 'weatherGetterObject', {
+        bucket: assetBucket.name,
+        name: weatherGetterAsset.assetHash,
+        source: weatherGetterAsset.path,
     });
 
     const weatherGetter = new google.cloudfunctions2Function.Cloudfunctions2Function(this, 'weatherGetter', {
@@ -57,7 +57,7 @@ class MyStack extends TerraformStack {
             source: {
                 storageSource: {
                     bucket: assetBucket.name,
-                    object: assetObject.name,
+                    object: weatherGetterObject.name,
                 },
             },
         },
@@ -79,9 +79,21 @@ class MyStack extends TerraformStack {
         },
     });
 
-    const transformerRunner = new google.serviceAccount.ServiceAccount(this, 'transformRunner', {
-        accountId: 'transform-runner',
+    const transformerRunner = new google.serviceAccount.ServiceAccount(this, 'transformerRunner', {
+        accountId: 'transformer-runner',
     });
+
+    const transformerAsset = new TerraformAsset(this, 'transformerAsset', {
+        path: path.resolve('transformer'),
+        type: AssetType.ARCHIVE,
+    });
+
+    const transformerObject = new google.storageBucketObject.StorageBucketObject(this, 'transformerObject', {
+        bucket: assetBucket.name,
+        name: transformerAsset.assetHash,
+        source: transformerAsset.path,
+    });
+
 
     new google.cloudfunctions2Function.Cloudfunctions2Function(this, 'transformer', {
         buildConfig: {
@@ -90,7 +102,7 @@ class MyStack extends TerraformStack {
             source: {
                 storageSource: {
                     bucket: assetBucket.name,
-                    object: assetObject.name,
+                    object: transformerObject.name,
                 },
             },
         },
