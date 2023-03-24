@@ -12,6 +12,18 @@ class MyStack extends TerraformStack {
 
     new google.provider.GoogleProvider(this, 'google', {
         project,
+        region,
+    });
+
+    new google.cloudbuildTrigger.CloudbuildTrigger(this, 'buildTrigger', {
+        filename: 'cloudbuild.yaml',
+        github: {
+            name: 'cautious-guacamole',
+            owner: 'hsmtkk',
+            push: {
+                branch: '.*',
+            },
+        },
     });
 
     const assetBucket = new google.storageBucket.StorageBucket(this, 'assetBucket', {
@@ -19,8 +31,8 @@ class MyStack extends TerraformStack {
         name: `asset-bucket-${project}`,
     });
 
-    const transformQueue = new google.pubsubTopic.PubsubTopic(this, 'transformQueue', {
-        name: 'transform-queue',
+    const transformerQueue = new google.pubsubTopic.PubsubTopic(this, 'transformerQueue', {
+        name: 'transformer-queue',
     });
 
     const openWeatherSecret = new google.secretManagerSecret.SecretManagerSecret(this, 'openWeatherSecret', {
@@ -37,6 +49,18 @@ class MyStack extends TerraformStack {
 
     const weatherGetterRunner = new google.serviceAccount.ServiceAccount(this, 'weatherGetterRunner', {
         accountId: 'weather-getter-runner',
+    });
+
+    new google.projectIamMember.ProjectIamMember(this, 'allowWeatherGetterRunnerAccessingSecret', {
+        member: `serviceAccount:${weatherGetterRunner.email}`,
+        project,
+        role: 'roles/secretmanager.secretAccessor',
+    });
+
+    new google.projectIamMember.ProjectIamMember(this, 'allowWeatherGetterRunnerPublishingPubSub', {
+        member: `serviceAccount:${weatherGetterRunner.email}`,
+        project,
+        role: 'roles/pubsub.publisher',        
     });
 
     const weatherGetterAsset = new TerraformAsset(this, 'weatherGetterAsset', {
@@ -61,13 +85,21 @@ class MyStack extends TerraformStack {
                 },
             },
         },
+        location: region,
         name: 'weather-getter',
         serviceConfig: {
             environmentVariables: {
-                'TRANSFORM_QUEUE': transformQueue.name,
+                'CITY': 'Tokyo',
+                'TRANSFORMER_QUEUE': transformerQueue.name,
             },
             minInstanceCount: 0,
             maxInstanceCount: 1,
+            secretEnvironmentVariables: [{
+                key: 'OPEN_WEATHER_API_KEY',
+                projectId: project,
+                secret: openWeatherSecret.secretId,
+                version: '2',
+            }],
             serviceAccountEmail: weatherGetterRunner.email,
         },
     });
@@ -77,10 +109,17 @@ class MyStack extends TerraformStack {
         httpTarget: {
             uri: weatherGetter.serviceConfig.uri,
         },
+        schedule: '* * * * *',
     });
 
     const transformerRunner = new google.serviceAccount.ServiceAccount(this, 'transformerRunner', {
         accountId: 'transformer-runner',
+    });
+
+    new google.projectIamMember.ProjectIamMember(this, 'allowTransformerRunnerPublishingPubSub', {
+        member: `serviceAccount:${transformerRunner.email}`,
+        project,
+        role: 'roles/pubsub.publisher',        
     });
 
     const transformerAsset = new TerraformAsset(this, 'transformerAsset', {
@@ -94,6 +133,9 @@ class MyStack extends TerraformStack {
         source: transformerAsset.path,
     });
 
+    const bigQueryQueue = new google.pubsubTopic.PubsubTopic(this, 'bigQueryQueue', {
+        name: 'big-query-queue',
+    });
 
     new google.cloudfunctions2Function.Cloudfunctions2Function(this, 'transformer', {
         buildConfig: {
@@ -106,16 +148,20 @@ class MyStack extends TerraformStack {
                 },
             },
         },
+        eventTrigger: {
+            eventType: 'google.cloud.pubsub.topic.v1.messagePublished',
+            pubsubTopic: transformerQueue.id,
+        },
+        location: region,
         name: 'transformer',
         serviceConfig: {
+            environmentVariables: {
+                'BIG_QUERY_QUEUE': bigQueryQueue.name,
+            },
             minInstanceCount: 0,
             maxInstanceCount: 1,
             serviceAccountEmail: transformerRunner.email,
         },
-    });
-
-    new google.pubsubTopic.PubsubTopic(this, 'bigQueryQueue', {
-        name: 'big-query-queue',
     });
 
     const weatherDataset = new google.bigqueryDataset.BigqueryDataset(this, 'weatherDataset', {
