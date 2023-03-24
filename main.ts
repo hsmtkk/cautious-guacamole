@@ -89,7 +89,8 @@ class MyStack extends TerraformStack {
         name: 'weather-getter',
         serviceConfig: {
             environmentVariables: {
-                'TRANSFORM_QUEUE': transformerQueue.name,
+                'CITY': 'Tokyo',
+                'TRANSFORMER_QUEUE': transformerQueue.name,
             },
             minInstanceCount: 0,
             maxInstanceCount: 1,
@@ -132,6 +133,9 @@ class MyStack extends TerraformStack {
         source: transformerAsset.path,
     });
 
+    const bigQueryQueue = new google.pubsubTopic.PubsubTopic(this, 'bigQueryQueue', {
+        name: 'big-query-queue',
+    });
 
     new google.cloudfunctions2Function.Cloudfunctions2Function(this, 'transformer', {
         buildConfig: {
@@ -151,14 +155,13 @@ class MyStack extends TerraformStack {
         location: region,
         name: 'transformer',
         serviceConfig: {
+            environmentVariables: {
+                'BIG_QUERY_QUEUE': bigQueryQueue.name,
+            },
             minInstanceCount: 0,
             maxInstanceCount: 1,
             serviceAccountEmail: transformerRunner.email,
         },
-    });
-
-    new google.pubsubTopic.PubsubTopic(this, 'bigQueryQueue', {
-        name: 'big-query-queue',
     });
 
     const weatherDataset = new google.bigqueryDataset.BigqueryDataset(this, 'weatherDataset', {
