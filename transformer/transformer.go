@@ -50,6 +50,8 @@ func transform(orig []byte) ([]byte, error) {
 }
 
 func publish(ctx context.Context, data []byte) (string, error) {
+	log.Print(LogEntry{Message: "project ID: " + os.Getenv("PROJECT_ID"), Severity: "DEBUG"})
+	log.Print(LogEntry{Message: "topic: " + os.Getenv("BIG_QUERY_QUEUE"), Severity: "DEBUG"})
 	client, err := pubsub.NewClient(ctx, os.Getenv("PROJECT_ID"))
 	if err != nil {
 		return "", fmt.Errorf("failed to make Pub/Sub client; %w", err)
