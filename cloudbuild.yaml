@@ -1,5 +1,5 @@
 steps:
-- name: gcr.io/google.com/cloudsdktool/cloud-sdk
+- name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
   waitFor: ['-']
   dir: weather-getter
   entrypoint: gcloud
@@ -9,7 +9,7 @@ steps:
   - weather-getter
   - --gen2
   - --region=${_REGION}
-- name: gcr.io/google.com/cloudsdktool/cloud-sdk
+- name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
   waitFor: ['-']
   dir: transformer
   entrypoint: gcloud
