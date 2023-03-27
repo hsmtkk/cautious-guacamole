@@ -101,7 +101,7 @@ class MyStack extends TerraformStack {
         name: 'weather-getter',
         serviceConfig: {
             environmentVariables: {
-                'CITIES': 'Tokyo,Osaka',
+                'CITIES': 'Tokyo,Osaka,Fukuoka',
                 'PROJECT_ID': project,
                 'TRANSFORMER_QUEUE': transformerQueue.name,
             },
