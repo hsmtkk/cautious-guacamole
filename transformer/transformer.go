@@ -108,6 +108,7 @@ func insert(ctx context.Context, data transformedWeatherData) error {
 	if err != nil {
 		return fmt.Errorf("failed to make BigQuery client; %w", err)
 	}
+	defer client.Close()
 	table := client.Dataset(os.Getenv("BIG_QUERY_DATASET")).Table(os.Getenv("BIG_QUERY_TABLE"))
 	inserter := table.Inserter()
 	if err := inserter.Put(ctx, data); err != nil {

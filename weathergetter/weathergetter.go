@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"cloud.google.com/go/pubsub"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
@@ -19,29 +20,30 @@ func init() {
 func GetWeather(w http.ResponseWriter, r *http.Request) {
 	log.Print(LogEntry{Message: "begin"})
 	ctx := r.Context()
-	respBytes, err := get(ctx)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("failed OpenWeather API"))
-		log.Print(LogEntry{Severity: "ERROR", Message: err.Error()})
-		return
+	cities := strings.Split(os.Getenv("CITIES"), ",")
+	for _, city := range cities {
+		if err := getWeather(ctx, city); err != nil {
+			log.Print(LogEntry{Severity: "ERROR", Message: err.Error()})
+		}
 	}
-	publishID, err := publish(ctx, respBytes)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("failed to publish Pub/Sub"))
-		log.Print(LogEntry{Severity: "ERROR", Message: err.Error()})
-		return
-	}
-	log.Print(LogEntry{Message: fmt.Sprintf("message published; %s", publishID)})
 	w.WriteHeader(http.StatusOK)
 	log.Print(LogEntry{Message: "end"})
 }
 
-func get(ctx context.Context) ([]byte, error) {
-	city := os.Getenv("CITY")
-	openWeatherAPIKey := os.Getenv("OPEN_WEATHER_API_KEY")
+func getWeather(ctx context.Context, city string) error {
+	respBytes, err := get(ctx, city)
+	if err != nil {
+		return err
+	}
+	log.Print(LogEntry{Message: string(respBytes)})
+	if err := publish(ctx, respBytes); err != nil {
+		return err
+	}
+	return nil
+}
 
+func get(ctx context.Context, city string) ([]byte, error) {
+	openWeatherAPIKey := os.Getenv("OPEN_WEATHER_API_KEY")
 	url := fmt.Sprintf("https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s", city, openWeatherAPIKey)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -62,19 +64,20 @@ func get(ctx context.Context) ([]byte, error) {
 	return respBytes, nil
 }
 
-func publish(ctx context.Context, data []byte) (string, error) {
+func publish(ctx context.Context, data []byte) error {
 	client, err := pubsub.NewClient(ctx, os.Getenv("PROJECT_ID"))
 	if err != nil {
-		return "", fmt.Errorf("failed to make Pub/Sub client; %w", err)
+		return fmt.Errorf("failed to make Pub/Sub client; %w", err)
 	}
 	defer client.Close()
 	topic := client.Topic(os.Getenv("TRANSFORMER_QUEUE"))
 	result := topic.Publish(ctx, &pubsub.Message{
 		Data: data,
 	})
-	id, err := result.Get(ctx)
+	publishID, err := result.Get(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to publish; %w", err)
+		return fmt.Errorf("failed to publish; %w", err)
 	}
-	return id, nil
+	log.Print(LogEntry{Message: fmt.Sprintf("message published; %s", publishID)})
+	return nil
 }
