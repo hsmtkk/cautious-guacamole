@@ -103,6 +103,7 @@ class MyStack extends TerraformStack {
         serviceConfig: {
             environmentVariables: {
                 'CITY': 'Tokyo',
+                'PROJECT_ID': project,
                 'TRANSFORMER_QUEUE': transformerQueue.name,
             },
             minInstanceCount: 0,
@@ -183,6 +184,7 @@ class MyStack extends TerraformStack {
         serviceConfig: {
             environmentVariables: {
                 'BIG_QUERY_QUEUE': bigQueryQueue.name,
+                'PROJECT_ID': project,
             },
             minInstanceCount: 0,
             maxInstanceCount: 1,
