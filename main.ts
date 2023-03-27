@@ -101,7 +101,7 @@ class MyStack extends TerraformStack {
         name: 'weather-getter',
         serviceConfig: {
             environmentVariables: {
-                'CITY': 'Tokyo',
+                'CITIES': 'Tokyo,Osaka,Fukuoka',
                 'PROJECT_ID': project,
                 'TRANSFORMER_QUEUE': transformerQueue.name,
             },
@@ -196,6 +196,12 @@ class MyStack extends TerraformStack {
         'type': 'INT64',
         'mode': 'NULLABLE',
         'description': 'humidity',
+    },
+    {
+        'name': 'name',
+        'type': 'STRING',
+        'mode': 'NULLABLE',
+        'description': 'name',
     },
 ]
 
