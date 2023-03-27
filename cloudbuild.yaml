@@ -1,7 +1,7 @@
 steps:
 - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
   waitFor: ['-']
-  dir: weather-getter
+  dir: weathergetter
   entrypoint: gcloud
   args:
   - functions
