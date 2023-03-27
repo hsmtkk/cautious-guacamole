@@ -4,7 +4,6 @@ import * as google from '@cdktf/provider-google';
 import * as path from 'path';
 
 const project = 'cautious-guacamole-381822';
-const projectNumber = '932118107698';
 const region = 'us-central1';
 const repository = 'cautious-guacamole';
 
@@ -139,14 +138,82 @@ class MyStack extends TerraformStack {
         schedule: '* * * * *',
     });
 
+    const weatherDataset = new google.bigqueryDataset.BigqueryDataset(this, 'weatherDataset', {
+        datasetId: 'weather_dataset',
+    });    
+
+    const weatherTableSchema = [
+    {
+        'name': 'longitude',
+        'type': 'FLOAT64',
+        'mode': 'NULLABLE',
+        'description': 'longitude',
+    },
+    {
+        'name': 'latitude',
+        'type': 'FLOAT64',
+        'mode': 'NULLABLE',
+        'description': 'latitude',
+    },
+    {
+        'name': 'weather_main',
+        'type': 'STRING',
+        'mode': 'NULLABLE',
+        'description': 'weather main',
+    },
+    {
+        'name': 'weather_description',
+        'type': 'STRING',
+        'mode': 'NULLABLE',
+        'description': 'weather description',
+    },
+    {
+        'name': 'temperature',
+        'type': 'FLOAT64',
+        'mode': 'NULLABLE',
+        'description': 'temperature',
+    },
+    {
+        'name': 'temperature_min',
+        'type': 'FLOAT64',
+        'mode': 'NULLABLE',
+        'description': 'temperature_min',
+    },
+    {
+        'name': 'temperature_max',
+        'type': 'FLOAT64',
+        'mode': 'NULLABLE',
+        'description': 'temperature_max',
+    },
+    {
+        'name': 'pressure',
+        'type': 'INT64',
+        'mode': 'NULLABLE',
+        'description': 'pressure',
+    },
+    {
+        'name': 'humidity',
+        'type': 'INT64',
+        'mode': 'NULLABLE',
+        'description': 'humidity',
+    },
+]
+
+    const weatherTable = new google.bigqueryTable.BigqueryTable(this, 'weatherTable', {
+        datasetId: weatherDataset.datasetId,
+        deletionProtection: false,
+        tableId: 'weather_table',
+        schema: JSON.stringify(weatherTableSchema),
+    });
+
     const transformerRunner = new google.serviceAccount.ServiceAccount(this, 'transformerRunner', {
         accountId: 'transformer-runner',
     });
 
-    new google.projectIamMember.ProjectIamMember(this, 'allowTransformerRunnerPublishingPubSub', {
+    new google.projectIamMember.ProjectIamMember(this, 'allowTransformerRunnerInsertBigQuery', {
         member: `serviceAccount:${transformerRunner.email}`,
         project,
-        role: 'roles/pubsub.publisher',        
+        role: 'roles/bigquery.dataEditor',        
     });
 
     const transformerAsset = new TerraformAsset(this, 'transformerAsset', {
@@ -158,10 +225,6 @@ class MyStack extends TerraformStack {
         bucket: assetBucket.name,
         name: transformerAsset.assetHash,
         source: transformerAsset.path,
-    });
-
-    const bigQueryQueue = new google.pubsubTopic.PubsubTopic(this, 'bigQueryQueue', {
-        name: 'big-query-queue',
     });
 
     new google.cloudfunctions2Function.Cloudfunctions2Function(this, 'transformer', {
@@ -183,45 +246,14 @@ class MyStack extends TerraformStack {
         name: 'transformer',
         serviceConfig: {
             environmentVariables: {
-                'BIG_QUERY_QUEUE': bigQueryQueue.name,
+                'BIG_QUERY_DATASET': weatherDataset.datasetId,
+                'BIG_QUERY_TABLE': weatherTable.tableId,
                 'PROJECT_ID': project,
             },
             minInstanceCount: 0,
             maxInstanceCount: 1,
             serviceAccountEmail: transformerRunner.email,
         },
-    });
-
-    const weatherDataset = new google.bigqueryDataset.BigqueryDataset(this, 'weatherDataset', {
-        datasetId: 'weather_dataset',
-    });
-
-    const weatherTableSchema = [{
-        'name': 'data',
-        'type': 'STRING',
-        'mode': 'NULLABLE',
-        'description': 'the data',
-    }]
-
-    const weatherTable = new google.bigqueryTable.BigqueryTable(this, 'weatherTable', {
-        datasetId: weatherDataset.datasetId,
-        deletionProtection: false,
-        tableId: 'weather_table',
-        schema: JSON.stringify(weatherTableSchema),
-    });
-
-    new google.projectIamMember.ProjectIamMember(this, 'allowPubSubBigQuery', {
-        member: `serviceAccount:service-${projectNumber}@gcp-sa-pubsub.iam.gserviceaccount.com`,
-        project,
-        role: 'roles/bigquery.admin',
-    });
-
-    new google.pubsubSubscription.PubsubSubscription(this, 'weatherTableSubscription', {
-        bigqueryConfig: {
-            table: `${project}.${weatherDataset.datasetId}.${weatherTable.tableId}`,
-        },
-        name: 'weather-table',
-        topic: bigQueryQueue.name,
     });
 
   }
