@@ -50,7 +50,7 @@ func transform(orig []byte) ([]byte, error) {
 }
 
 func publish(ctx context.Context, data []byte) (string, error) {
-	client, err := pubsub.NewClient(ctx, os.Getenv("GCP_PROJECT"))
+	client, err := pubsub.NewClient(ctx, os.Getenv("PROJECT_ID"))
 	if err != nil {
 		return "", fmt.Errorf("failed to make Pub/Sub client; %w", err)
 	}
