@@ -63,6 +63,8 @@ func get(ctx context.Context) ([]byte, error) {
 }
 
 func publish(ctx context.Context, data []byte) (string, error) {
+	log.Print(LogEntry{Message: "project ID: " + os.Getenv("GCP_PROJECT"), Severity: "DEBUG"})
+	log.Print(LogEntry{Message: "topic: " + os.Getenv("TRANSFORMER_QUEUE"), Severity: "DEBUG"})
 	client, err := pubsub.NewClient(ctx, os.Getenv("GCP_PROJECT"))
 	if err != nil {
 		return "", fmt.Errorf("failed to make Pub/Sub client; %w", err)
