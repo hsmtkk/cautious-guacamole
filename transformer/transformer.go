@@ -28,6 +28,7 @@ type originalWeatherData struct {
 	Coordinates originalWeatherDataCoord     `json:"coord"`
 	Weather     []originalWeatherDataWeather `json:"weather"`
 	Main        originalWeatherDataMain      `json:"main"`
+	Name        string                       `json:"name"`
 }
 
 type originalWeatherDataCoord struct {
@@ -60,6 +61,7 @@ type transformedWeatherData struct {
 	TemperatureMax     float64 `bigquery:"temperature_max"`
 	Pressure           int     `bigquery:"pressure"`
 	Humidity           int     `bigquery:"humidity"`
+	Name               string  `bigquery:"name"`
 }
 
 func Transform(ctx context.Context, e cloudevents.Event) error {
@@ -97,6 +99,7 @@ func transform(origBytes []byte) (transformedWeatherData, error) {
 		TemperatureMax:     orig.Main.TemperatureMax,
 		Pressure:           orig.Main.Pressure,
 		Humidity:           orig.Main.Pressure,
+		Name:               orig.Name,
 	}, nil
 }
 
