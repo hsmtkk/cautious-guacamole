@@ -209,6 +209,10 @@ class MyStack extends TerraformStack {
         datasetId: weatherDataset.datasetId,
         deletionProtection: false,
         tableId: 'weather_table',
+        timePartitioning: {
+            expirationMs: 1 * 30 * 24 * 60 * 60 * 1000, // 1 month
+            type: 'DAY',
+        },
         schema: JSON.stringify(weatherTableSchema),
     });
 
