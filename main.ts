@@ -1,10 +1,12 @@
 import { Construct } from "constructs";
-import { App, TerraformStack, TerraformAsset, AssetType } from "cdktf";
+import { App, TerraformStack, TerraformAsset, AssetType, GcsBackend } from "cdktf";
 import * as google from '@cdktf/provider-google';
 import * as path from 'path';
 
-const project = 'cautious-guacamole-381604';
+const project = 'cautious-guacamole-381822';
+const projectNumber = '932118107698';
 const region = 'us-central1';
+const repository = 'cautious-guacamole';
 
 class MyStack extends TerraformStack {
   constructor(scope: Construct, id: string) {
@@ -15,10 +17,14 @@ class MyStack extends TerraformStack {
         region,
     });
 
+    new GcsBackend(this, {
+        bucket: `backend-${project}`,
+    });
+
     new google.cloudbuildTrigger.CloudbuildTrigger(this, 'buildTrigger', {
         filename: 'cloudbuild.yaml',
         github: {
-            name: 'cautious-guacamole',
+            name: repository,
             owner: 'hsmtkk',
             push: {
                 branch: '.*',
@@ -27,6 +33,18 @@ class MyStack extends TerraformStack {
     });
 
     const assetBucket = new google.storageBucket.StorageBucket(this, 'assetBucket', {
+        autoclass: {
+            enabled: true,
+        },
+        forceDestroy: true,
+        lifecycleRule: [{
+            action: {
+                type: 'Delete',
+            },
+            condition: {
+                age: 1,
+            },
+        }],
         location: region,
         name: `asset-bucket-${project}`,
     });
@@ -40,11 +58,6 @@ class MyStack extends TerraformStack {
         replication: {
             automatic: true,
         },
-    });
-
-    new google.secretManagerSecretVersion.SecretManagerSecretVersion(this, 'openWeatherSecretVersion', {
-        secret: openWeatherSecret.id,
-        secretData: 'dummy',
     });
 
     const weatherGetterRunner = new google.serviceAccount.ServiceAccount(this, 'weatherGetterRunner', {
@@ -98,15 +111,28 @@ class MyStack extends TerraformStack {
                 key: 'OPEN_WEATHER_API_KEY',
                 projectId: project,
                 secret: openWeatherSecret.secretId,
-                version: '2',
+                version: '1',
             }],
             serviceAccountEmail: weatherGetterRunner.email,
         },
     });
 
+    const schedulerRunner = new google.serviceAccount.ServiceAccount(this, 'schedulerRunner', {
+        accountId: 'scheduler-runner',
+    });
+
+    new google.projectIamMember.ProjectIamMember(this, 'allowSchedulerRunnerInvokeFunction', {
+        member: `serviceAccount:${schedulerRunner.email}`,
+        project,
+        role: 'roles/run.invoker',
+    });
+
     new google.cloudSchedulerJob.CloudSchedulerJob(this, 'scheduler', {
         name: 'scheduler',
         httpTarget: {
+            oidcToken: {
+                serviceAccountEmail: schedulerRunner.email,
+            },
             uri: weatherGetter.serviceConfig.uri,
         },
         schedule: '* * * * *',
@@ -168,9 +194,32 @@ class MyStack extends TerraformStack {
         datasetId: 'weather_dataset',
     });
 
-    new google.bigqueryTable.BigqueryTable(this, 'weatherTable', {
+    const weatherTableSchema = [{
+        'name': 'data',
+        'type': 'STRING',
+        'mode': 'NULLABLE',
+        'description': 'the data',
+    }]
+
+    const weatherTable = new google.bigqueryTable.BigqueryTable(this, 'weatherTable', {
         datasetId: weatherDataset.datasetId,
+        deletionProtection: false,
         tableId: 'weather_table',
+        schema: JSON.stringify(weatherTableSchema),
+    });
+
+    new google.projectIamMember.ProjectIamMember(this, 'allowPubSubBigQuery', {
+        member: `serviceAccount:service-${projectNumber}@gcp-sa-pubsub.iam.gserviceaccount.com`,
+        project,
+        role: 'roles/bigquery.admin',
+    });
+
+    new google.pubsubSubscription.PubsubSubscription(this, 'weatherTableSubscription', {
+        bigqueryConfig: {
+            table: `${project}.${weatherDataset.datasetId}.${weatherTable.tableId}`,
+        },
+        name: 'weather-table',
+        topic: bigQueryQueue.name,
     });
 
   }
